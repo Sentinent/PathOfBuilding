@@ -716,6 +716,32 @@ local PassiveTreeClass = newClass("PassiveTree", function(self, treeVersion)
 		self:ProcessStats(node)
 	end
 
+	-- For 3.28 event, inject ascendancy notables from normal tree
+	if treeVersion == "3_28_alternate" or treeVersion == "3_28_ruthless_alternate" then
+		self.notableTattoosNodes = {}
+
+		local originalTree = main:LoadTree(treeVersion:gsub("_alternate", ""))
+		for _, node in pairs(originalTree.nodes) do
+			-- Find all notable ascendencies passives from original tree by searching for nodes that:
+			if node.ascendancyName -- are associated with an ascendancy
+				and ((node.isNotable and not node.isMultipleChoice) or node.isMultipleChoiceOption) -- are either notables (but not the base multi-choice option), or are the multi-choice options with the actual stats
+				and not node.isBloodline -- are not bloodline notables
+				and #node.linkedId > 0 -- are not the forbidden flesh/flame exclusive ones
+			then
+				local node_copy = copyTable(node, true)
+				if node_copy.isMultipleChoiceOption then
+					-- FIXME: For multi-choice options, use parent icons and sprites. I don't know why the multi-choice option ones display a blank.
+					local parentNode = tonumber(node_copy["in"][1])
+					node_copy.icon = originalTree.nodes[parentNode].icon
+					node_copy.sprites = self.spriteMap[node_copy.icon]
+					ConPrintf("%s: %s -> %s", _, node_copy.dn, node_copy.icon)
+				end
+
+				self.notableTattoosNodes[node_copy.dn] = node_copy
+			end
+		end
+	end
+
 	-- Late load the Generated data so we can take advantage of a tree existing
 	if treeVersion == latestTreeVersion then
 		buildTreeDependentUniques(self)

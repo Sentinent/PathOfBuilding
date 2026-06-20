@@ -164,12 +164,17 @@ function PassiveSpecClass:Load(xml, dbFileName)
 							end
 						end
 
-						-- If the above failed remove the tattoo to avoid crashing
+						-- Try to find the matching tattoo
 						if self.tree.tattoo.nodes[child.attrib.dn] then
 							local nodeId = tonumber(child.attrib.nodeId)
 							self.hashOverrides[nodeId] = copyTable(self.tree.tattoo.nodes[child.attrib.dn], true)
 							self.hashOverrides[nodeId].id = nodeId
+						elseif self.tree.notableTattoosNodes and self.tree.notableTattoosNodes[child.attrib.dn] then -- 3.28 event -- main:LoadTree() will create `tree.notableTattooNodes`
+							local nodeId = tonumber(child.attrib.nodeId)
+							self.hashOverrides[nodeId] = copyTable(self.tree.notableTattoosNodes[child.attrib.dn], true)
+							self.hashOverrides[nodeId].id = nodeId
 						else
+							-- If the above failed remove the tattoo to avoid crashing
 							ConPrintf("[PassiveSpecClass:Load] Failed to find a tattoo with dn of: " .. child.attrib.dn)
 						end
 					end

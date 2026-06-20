@@ -513,6 +513,10 @@ function PassiveTreeViewClass:Draw(build, viewPort, inputEvents)
 		elseif hoverNode and not hoverNode.alloc and hoverNode.type == "Mastery" and hoverNode.masteryEffects then
 			build.treeTab:ModifyNodePopup(hoverNode, viewPort)
 			build.buildFlag = true
+		-- 3.28 event: Ascendancy notable tattoos
+		elseif hoverNode and hoverNode.type == "Notable" and hoverNode.ascendancyName then
+			build.treeTab:NotableTattooPopup(hoverNode, viewPort)
+			build.buildFlag = true
 		end
 	end
 

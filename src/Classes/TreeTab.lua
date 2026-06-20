@@ -989,6 +989,115 @@ function TreeTabClass:ModifyNodePopup(selectedNode)
 	controls.showLegacyTattoo.state = self.showLegacyTattoo
 end
 
+function TreeTabClass:NotableTattooPopup(selectedNode)
+	if not self.build.spec.tree.notableTattoosNodes then
+		-- main:LoadTree() didn't create `notableTattoosNodes`, meaning the tree version is not `3.28.*alternate`, so do nothing
+		return
+	end
+
+	local controls = { }
+	local modGroups = { }
+	local treeNodes = self.build.spec.tree.nodes;
+	local notableTattoosNodes = self.build.spec.tree.notableTattoosNodes
+
+	local function buildMods()
+		wipeTable(modGroups)
+		for nodeId, node in pairs(notableTattoosNodes) do
+			t_insert(modGroups, {
+				descriptions = node.sd,
+				id = nodeId,
+				label = node.ascendancyName:gsub("Raider", "Warden") .. ": " .. node.dn
+			})
+		end
+
+		table.sort(modGroups, function(a, b) return a.label < b.label end)
+	end
+
+	local nodeName = treeNodes[selectedNode.id].dn
+	local function addModifier(selectedNode)
+		local newTattooNode = notableTattoosNodes[modGroups[controls.modSelect.selIndex].id]
+		newTattooNode.id = selectedNode.id
+		-- Need to set `x` and `y` for calcsTab viewport to focus on the right location
+		newTattooNode.x = selectedNode.x
+		newTattooNode.y = selectedNode.y
+		self.build.spec.hashOverrides[selectedNode.id] = newTattooNode
+		self.build.spec:ReplaceNode(selectedNode, newTattooNode)
+		self.build.spec:BuildAllDependsAndPaths()
+	end
+
+	local function constructUI(modGroup)
+		local totalHeight = 43
+		local maxWidth = 375
+		local i = 1
+		while controls[i] do
+			controls[i] = nil
+			i = i + 1
+		end
+
+		local wrapTable = {}
+		for idx, desc in ipairs(modGroup.descriptions) do
+			for _, wrappedDesc in ipairs(main:WrapString(desc, 16, maxWidth)) do
+				t_insert(wrapTable, wrappedDesc)
+			end
+		end
+		for idx, desc in ipairs(wrapTable) do
+			controls[idx] = new("LabelControl", {"TOPLEFT", controls[idx-1] or controls.modSelect,"TOPLEFT"}, {0, 20, 600, 16}, "^7"..desc)
+			totalHeight = totalHeight + 20
+		end
+		main.popups[1].height = totalHeight + 75
+		local buttonHeight = totalHeight + 15
+		controls.save.y = buttonHeight
+		controls.reset.y = buttonHeight
+		controls.close.y = buttonHeight
+		controls.tattooWarning.y = buttonHeight + 30
+	end
+
+	buildMods(selectedNode)
+	controls.modSelectLabel = new("LabelControl", {"TOPRIGHT",nil,"TOPLEFT"}, {170, 25, 0, 16}, "^7Modifier:")
+	controls.modSelect = new("DropDownControl", {"TOPLEFT",nil,"TOPLEFT"}, {175, 25, 250, 18}, modGroups, function(idx) constructUI(modGroups[idx]) end)
+	controls.modSelect.selIndex = self.defaultTattoo[nodeName] or 1
+	controls.modSelect.tooltipFunc = function(tooltip, mode, index, value)
+		tooltip:Clear()
+		if mode ~= "OUT" and value then
+			for _, line in ipairs(value.descriptions) do
+				tooltip:AddLine(16, "^7"..line)
+			end
+		end
+	end
+	controls.save = new("ButtonControl", nil, {-90, 75, 80, 20}, "Add", function()
+		addModifier(selectedNode)
+		self.build.spec:AddUndoState()
+		self.modFlag = true
+		self.build.buildFlag = true
+		self.defaultTattoo[nodeName] = controls.modSelect.selIndex
+		main:ClosePopup()
+	end)
+	controls.reset = new("ButtonControl", nil, {0, 75, 80, 20}, "Reset Node", function()
+		self:RemoveTattooFromNode(selectedNode)
+		self.build.spec:AddUndoState()
+		self.modFlag = true
+		self.build.buildFlag = true
+		self.defaultTattoo[nodeName] = nil
+		main:ClosePopup()
+	end)
+	controls.close = new("ButtonControl", nil, {90, 75, 80, 20}, "Cancel", function()
+		main:ClosePopup()
+	end)
+
+	local function getTattooWarning()
+		for _, node in pairs(self.build.spec.hashOverrides) do
+			if notableTattoosNodes[node.dn] and node.dn ~= selectedNode.dn then
+				return colorCodes.NEGATIVE .. "Warning: You already have a notable tattoo"
+			end
+		end
+		return ""
+	end
+
+	controls.tattooWarning = new("LabelControl", nil, { 0, 90, 145, 20 }, getTattooWarning())
+	main:OpenPopup(600, 105, "Replace Modifier of Node", controls, "save")
+	constructUI(modGroups[self.defaultTattoo[nodeName] or 1])
+end
+
 function TreeTabClass:SaveMasteryPopup(node, listControl)
 		if listControl.selValue == nil then
 			return
